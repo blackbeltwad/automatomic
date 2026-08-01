@@ -1,5 +1,4 @@
 # automatomic
-# Automatomic
 
 ## Overview
 
