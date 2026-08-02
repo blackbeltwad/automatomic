@@ -29,14 +29,14 @@ type JWTManager struct {
 	tokenDuration time.Duration
 }
 
-func newJWTManager(secretKey string, duration time.Duration) *JWTManager{
+func NewJWTManager(secretKey string, duration time.Duration) *JWTManager{
 	return &JWTManager{
 		secretKey: []byte(secretKey),
 		tokenDuration: duration,
 		}
 }
 
-func (m *JWTManager) generate(user *model.User, scopes []string) (string,error){
+func (m *JWTManager) Generate(user *model.User, scopes []string) (string,error){
 	claims := CustomClaims{
 		UserID: user.ID,
 		Role: user.Role,
