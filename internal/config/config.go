@@ -2,6 +2,8 @@ package config
 
 import (
 	"os"
+	"github.com/joho/godotenv"
+	"log"
 )
 
 type Config struct {
@@ -14,13 +16,22 @@ type Config struct {
 }
 
 func Load() *Config {
+	
+	if err := godotenv.Load(); err != nil {
+        log.Println("No .env file found, using system environment variables")
+    }
+
+    dbURL := os.Getenv("DATABASE_URL")
+    if dbURL == "" {
+        log.Fatal("DATABASE_URL environment variable is required but empty")
+    }
 	return &Config{
 		Port:           getEnv("PORT", "8080"),
-		DatabaseURL:    getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/automatomic?sslmode=disable"),
-		JWTSecret:      getEnv("JWT_SECRET", "super-secret-key-change-in-prod"),
+		DatabaseURL:    getEnv("DATABASE_URL", ""),
+		JWTSecret:      getEnv("JWT_SECRET", ""),
 		GitHubClientID: getEnv("GITHUB_CLIENT_ID", ""),
 		GitHubSecret:   getEnv("GITHUB_CLIENT_SECRET", ""),
-		FrontendURL:    getEnv("FRONTEND_URL", "http://localhost:3000"),
+		FrontendURL:    getEnv("FRONTEND_URL", ""),
 	}
 }
 

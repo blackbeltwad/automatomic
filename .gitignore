@@ -1,14 +1,19 @@
 #Environment
 .env
 .env.*
+!.env.example
 
 #MacOS
 .DS_Store
 
-# Go binaries
-*.exe
-*.out
+# Go Binaries & Build Outputs
 /bin/
+/dist/
+*.exe
+*.exe;
+*.dll
+*.so
+*.dylib
 
 # Logs
 *.log
@@ -16,6 +21,17 @@
 # IDE settings
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # Test coverage
 coverage.out
+
+#modules
+node_modules/
+.next/
+out/
+
+# Docker / Database Data (if storing local persistent data in root)
+.vector_data/
+postgres-data/

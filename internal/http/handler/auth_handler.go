@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"encoding/json"
+	
 	"net/http"
-	"time"
+	"log"
 
 	"automatomic/internal/auth"
 	"automatomic/internal/model"
@@ -40,6 +40,7 @@ func (h *AuthHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Reques
 	
 	ghUser, err := h.ghOAuth.FetchUserInfo(r.Context(), code)
 	if err != nil {
+		log.Printf("[OAuth Error] Failed to exchange code for GitHub token: %v\n", err)
 		http.Error(w, `{"error":"failed to authenticate with GitHub"}`, http.StatusInternalServerError)
 		return
 	}
@@ -53,6 +54,7 @@ func (h *AuthHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.repo.UpsertGitHubUser(r.Context(), user); err != nil {
+		log.Printf("[OAuth Error] Database Upsert Failed: %v\n", err)
 		http.Error(w, `{"error":"failed to save user session"}`, http.StatusInternalServerError)
 		return
 	}
@@ -60,15 +62,20 @@ func (h *AuthHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Reques
 	scopes := []string{model.ScopePipelineRead, model.ScopePipelineWrite}
 	tokenStr, err := h.jwtMgr.Generate(user, scopes)
 	if err != nil {
+		log.Printf("[OAuth Error] JWT Generation Failed: %v\n", err)
 		http.Error(w, `{"error":"token issuance failure"}`, http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"access_token": tokenStr,
-		"token_type":   "Bearer",
-		"expires_in":   24 * time.Hour,
-		"user":         user,
-	})
+	http.SetCookie(w, &http.Cookie{
+        Name:     "access_token",
+        Value:    tokenStr,
+        Path:     "/",
+        HttpOnly: true,
+        Secure:   false, // set to true in production with HTTPS
+        SameSite: http.SameSiteLaxMode,
+        MaxAge:   86400, // 24 hours
+    })
+
+    http.Redirect(w, r, "http://localhost:3000/app/dashboard", http.StatusTemporaryRedirect)
 }

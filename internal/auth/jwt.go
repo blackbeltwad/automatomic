@@ -48,8 +48,13 @@ func (m *JWTManager) Generate(user *model.User, scopes []string) (string,error){
 		},
 
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodES256,claims)
-	return token.SignedString(m.secretKey)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256,claims)
+	tokenString, err := token.SignedString(m.secretKey)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+	return tokenString, nil
 
 }
 
