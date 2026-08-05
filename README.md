@@ -1,71 +1,100 @@
-# automatomic
+# Automatomic
 
-## Overview
+An Internal Developer Platform (IDP) / CI-CD engine. Push to GitHub, and
+Automatomic parses the pipeline, runs each step in an isolated container,
+streams build logs live to a dashboard, gates the build on security
+findings, and deploys to Kubernetes — including running its own CI/CD on
+its own codebase.
 
-Automatomic is a cloud-native software delivery platform that automates the process of building, testing, securing, deploying, and monitoring applications.
+## Status
 
-The goal is to help developers ship reliable software faster by reducing deployment complexity and improving visibility into application health.
+In active development. Target completion: end of August 2026.
 
-## Why Automatomic?
+- [x] Project scoped and architecture defined
+- [ ] Core control plane (in progress)
+- [ ] Kubernetes execution + webhooks
+- [ ] Observability + security gate
+- [ ] Live AWS demo + write-up
 
-Modern applications require complex deployment workflows involving containers, cloud infrastructure, and multiple services. Automatomic provides a centralized platform to automate these processes and reduce deployment failures.
+## Why this exists
 
-## What Makes It Different?
+A platform engineering project built to demonstrate real production
+patterns: a Go backend, container/Kubernetes orchestration, a real AWS
+deployment, observability, and security gating — deployed deliberately as
+a short-lived, cost-conscious demo rather than a service left running
+indefinitely.
 
-Unlike traditional CI/CD tools focused only on running pipelines, Automatomic focuses on **software reliability** by combining:
+## Tech stack
 
-- Automated CI/CD workflows
-- Kubernetes-based deployments
-- Security validation
-- Real-time monitoring
-- Deployment health tracking
-- Rollback support
+- **Backend:** Go — control plane API, job workers, pipeline parser
+- **Frontend:** Next.js + TypeScript, TailwindCSS
+- **Data:** PostgreSQL, Redis (job queue)
+- **Execution:** Docker (local) → Kubernetes (local via `kind`, then AWS EKS)
+- **Infra:** Terraform, AWS (EKS, RDS, ElastiCache, S3, IAM/IRSA, ALB)
+- **Observability:** OpenTelemetry, Prometheus, Grafana
+- **Security:** Automated SAST scanning, HMAC-verified GitHub webhooks
+- **Testing:** Go tests with Testcontainers, frontend E2E tests
 
-## Tech Stack
+## Architecture
 
-**Frontend**
-- Next.js + TypeScript  
-  - Dashboard and real-time deployment visualization
+```
+GitHub push/PR
+   -> Webhook (HMAC-verified) -> Go API
+   -> Pipeline spec parsed (YAML)
+   -> Job queued in Redis
+   -> Worker schedules a Kubernetes Job/Pod
+   -> Logs streamed live to the dashboard
+   -> Logs archived to object storage on completion
+   -> Security gate can fail the build
+   -> Metrics/traces exported to Prometheus/Grafana
+```
 
-**Backend**
-- Go  
-  - APIs, pipeline orchestration, job management
+## What's in this project
 
-**Infrastructure**
-- Docker  
-  - Containerized services and build environments
-- Kubernetes  
-  - Deployment orchestration and scalable runners
-- AWS  
-  - Cloud infrastructure
+**Core platform (the foundation, built first and most polished):**
+GitHub OAuth login, a real pipeline parser, an async job queue with a
+proper state machine, isolated container execution per build step, and a
+live dashboard streaming build output in real time. This is the part that
+has to feel solid — everything else builds on it.
 
-**Data**
-- PostgreSQL  
-  - Application data and deployment history
-- Redis  
-  - Job queues and real-time events
+**Kubernetes execution + this repo's own CI:** builds run as real
+Kubernetes Jobs rather than local containers, and this repository runs its
+own automated tests and checks on every push.
 
-**CI/CD**
-- GitHub Actions  
-  - Automated testing and deployment
+**Observability and security:** metrics and traces exported to a Grafana
+dashboard, and an automated check that fails a build if it detects a
+leaked credential or a known-vulnerable dependency. This layer covers the
+essentials rather than every possible signal — the goal is a working,
+legible example of the pattern, not exhaustive coverage.
 
-## C++ Component
+**Cloud deployment:** the full system deployed to real AWS infrastructure
+(Kubernetes, managed database, managed cache, object storage) for a
+recorded demo, provisioned with infrastructure-as-code rather than clicked
+together by hand, then torn down — the goal is proving it runs in a real
+cloud environment, not keeping it live indefinitely.
 
-A lightweight C++ runner handles low-level workload execution, including:
+**Demo & write-up:** a recorded walkthrough of the full pipeline running
+end to end on real infrastructure, along with architecture notes and
+screenshots, will be linked here once complete.
 
-- Process management
-- Resource monitoring
-- Log streaming
+## Explicitly out of scope for this version
 
-C++ is used for performance-critical operations requiring efficient system-level control.
+- A native low-level execution runner (a possible future, separate project)
+- Physical/hardware status display
+- High-availability infrastructure (multi-AZ, redundant networking) — this
+  is a demo deployment, not a production SLA
 
-## Arduino Integration
+## Local development
 
-An Arduino/ESP32 device acts as a physical deployment monitor, displaying live build and production status through WiFi communication.
+```bash
+# prereqs: Go, Node, Docker, kind, kubectl, Terraform
 
-Example:
-AUTOMATOMIC
+docker compose up -d          # local Postgres, Redis, object storage
+kind create cluster --name automatomic-dev
 
-BUILD: SUCCESS
-DEPLOY: ONLINE
+cd cmd/api && go run .        # backend
+cd web && npm install && npm run dev   # frontend
+
+go test ./...                 # tests
+```
 

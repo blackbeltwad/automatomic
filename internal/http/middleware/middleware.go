@@ -13,33 +13,45 @@ type contextKey string
 
 const ClaimsContextKey contextKey = "userClaims"
 
+// JWTMiddleware checks for access_token in cookies first, then Authorization header as fallback
 func JWTMiddleware(jwtMgr *auth.JWTManager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+			var tokenStr string
+
+			// 1. Try extracting token from HTTP-Only cookie
+			if cookie, err := r.Cookie("access_token"); err == nil {
+				tokenStr = cookie.Value
+			}
+
+			// 2. Fallback: Try Authorization header (Bearer <token>)
+			if tokenStr == "" {
+				authHeader := r.Header.Get("Authorization")
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+				}
+			}
+
+			if tokenStr == "" {
+				http.Error(w, `{"error":"missing authentication token"}`, http.StatusUnauthorized)
 				return
 			}
 
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				http.Error(w, `{"error":"invalid bearer token format"}`, http.StatusUnauthorized)
-				return
-			}
-
-			claims, err := jwtMgr.Verify(parts[1])
+			// 3. Verify token signature and claims
+			claims, err := jwtMgr.Verify(tokenStr)
 			if err != nil {
-				http.Error(w, `{"error":"unauthorized token validation failed"}`, http.StatusUnauthorized)
+				http.Error(w, `{"error":"unauthorized: invalid or expired token"}`, http.StatusUnauthorized)
 				return
 			}
 
+			// 4. Inject claims into request context for downstream handlers & RequireScope
 			ctx := context.WithValue(r.Context(), ClaimsContextKey, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
+// RequireScope enforces scope permissions using the claims injected by JWTMiddleware
 func RequireScope(requiredScope string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

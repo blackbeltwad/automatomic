@@ -1,6 +1,4 @@
-// Jwt authentication manager
 package auth
-
 
 import (
 	"errors"
@@ -29,36 +27,37 @@ type JWTManager struct {
 	tokenDuration time.Duration
 }
 
-func NewJWTManager(secretKey string, duration time.Duration) *JWTManager{
+func NewJWTManager(secretKey string, duration time.Duration) *JWTManager {
 	return &JWTManager{
-		secretKey: []byte(secretKey),
+		secretKey:     []byte(secretKey),
 		tokenDuration: duration,
-		}
+	}
 }
 
-func (m *JWTManager) Generate(user *model.User, scopes []string) (string,error){
+// Generate issues a signed HS256 JWT for the given user and scopes
+func (m *JWTManager) Generate(user *model.User, scopes []string) (string, error) {
 	claims := CustomClaims{
 		UserID: user.ID,
-		Role: user.Role,
+		Role:   user.Role,
 		Scopes: scopes,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(m.tokenDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   user.ID,
 		},
-
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256,claims)
-	tokenString, err := token.SignedString(m.secretKey)
 
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(m.secretKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
-	return tokenString, nil
 
+	return tokenString, nil
 }
 
-func (m *JWTManager) Verify(tokenString string) (*model.Claims, error){
+// Verify parses, checks signature/expiration, and returns normalized model.Claims
+func (m *JWTManager) Verify(tokenString string) (*model.Claims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		&CustomClaims{},
@@ -71,10 +70,9 @@ func (m *JWTManager) Verify(tokenString string) (*model.Claims, error){
 	)
 
 	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired){
+		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, ErrExpiredToken
 		}
-
 		return nil, ErrInvalidToken
 	}
 
@@ -85,7 +83,7 @@ func (m *JWTManager) Verify(tokenString string) (*model.Claims, error){
 
 	return &model.Claims{
 		UserID: claims.UserID,
-		Role: claims.Role,
+		Role:   claims.Role,
 		Scopes: claims.Scopes,
-	} , nil
+	}, nil
 }

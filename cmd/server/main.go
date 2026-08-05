@@ -60,6 +60,7 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok","timestamp":"` + time.Now().Format(time.RFC3339) + `"}`))
 	})
 
+
 	// OAuth Endpoints
 	mux.HandleFunc("GET /api/v1/auth/github/login", authHandler.HandleGitHubLogin)
 	mux.HandleFunc("GET /api/v1/auth/github/callback", authHandler.HandleGitHubCallback)
